@@ -4,9 +4,9 @@
 *
 *  TITLE:       AZAGARAMPUR.H
 *
-*  VERSION:     3.56
+*  VERSION:     3.58
 *
-*  DATE:        16 July 2021
+*  DATE:        21 Nov 2021
 *
 *  Prototypes and definitions for AzAgarampur methods.
 *
@@ -19,6 +19,10 @@
 #pragma once
 
 NTSTATUS ucmNICPoisonMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
+
+NTSTATUS ucmNICPoisonMethod2(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
 

@@ -4,9 +4,9 @@
 *
 *  TITLE:       SUP.C
 *
-*  VERSION:     3.57
+*  VERSION:     3.58
 *
-*  DATE:        01 Nov 2021
+*  DATE:        21 Nov 2021
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -2722,6 +2722,7 @@ BOOLEAN supInitFusion(
 {
     HMODULE hFusion;
     pfnCreateAssemblyCache CreateAssemblyCache;
+    pfnCreateAssemblyEnum CreateAssemblyEnum;
 
     WCHAR szBuffer[MAX_PATH * 2];
 
@@ -2760,17 +2761,85 @@ BOOLEAN supInitFusion(
         return FALSE;
 
     CreateAssemblyCache = (pfnCreateAssemblyCache)GetProcAddress(hFusion, "CreateAssemblyCache");
-
-    if (CreateAssemblyCache == NULL) {
+    CreateAssemblyEnum = (pfnCreateAssemblyEnum)GetProcAddress(hFusion, "CreateAssemblyEnum");
+    if (CreateAssemblyCache == NULL ||
+        CreateAssemblyEnum == NULL) 
+    {
         FreeLibrary(hFusion);
         return FALSE;
     }
 
     g_ctx->FusionContext.hFusion = hFusion;
     g_ctx->FusionContext.CreateAssemblyCache = CreateAssemblyCache;
+    g_ctx->FusionContext.CreateAssemblyEnum = CreateAssemblyEnum;
     g_ctx->FusionContext.Initialized = TRUE;
 
     return TRUE;
+}
+
+/*
+* supFusionGetAssemblyName
+*
+* Purpose:
+*
+* Return assembly name.
+*
+* Note: Use supHeapFree to release lpAssemblyName allocated memory.
+*
+*/
+HRESULT supFusionGetAssemblyName(
+    _In_ IAssemblyName* pInterface,
+    _Inout_ LPWSTR* lpName,
+    _Out_opt_ PSIZE_T pcchName,
+    _Inout_ LPWSTR* lpDisplayName,
+    _Out_opt_ PSIZE_T pcchDisplayName
+)
+{
+    DWORD cchName = 0;
+    HRESULT hr;
+    LPWSTR assemblyName = NULL, displayName = NULL;
+
+    do {
+
+        if (pcchName) *pcchName = 0;
+        if (pcchDisplayName) *pcchDisplayName = 0;
+
+        hr = pInterface->lpVtbl->GetName(pInterface, &cchName, NULL);
+        if (hr != HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER))
+            break;
+
+        assemblyName = (LPWSTR)supHeapAlloc((cchName * sizeof(WCHAR)) + sizeof(UNICODE_NULL));
+        if (assemblyName)
+            hr = pInterface->lpVtbl->GetName(pInterface, &cchName, (LPOLESTR)assemblyName);
+        else
+            hr = E_OUTOFMEMORY;
+
+        if (pcchName) {
+            if (SUCCEEDED(hr))
+                *pcchName = cchName;
+        }
+
+        cchName = 0;
+        hr = pInterface->lpVtbl->GetDisplayName(pInterface, NULL, &cchName, 0);
+        if (hr != HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER))
+            break;
+
+        displayName = (LPWSTR)supHeapAlloc((cchName * sizeof(WCHAR)) + sizeof(UNICODE_NULL));
+        if (displayName)
+            hr = pInterface->lpVtbl->GetDisplayName(pInterface, (LPOLESTR)displayName, &cchName, 0);
+        else
+            hr = E_OUTOFMEMORY;
+
+        if (pcchDisplayName) {
+            if (SUCCEEDED(hr))
+                *pcchDisplayName = cchName;
+        }
+
+    } while (FALSE);
+
+    *lpName = assemblyName;
+    *lpDisplayName = displayName;
+    return hr;
 }
 
 /*
@@ -2785,8 +2854,8 @@ BOOLEAN supInitFusion(
 */
 HRESULT supFusionGetAssemblyPath(
     _In_ IAssemblyCache* pInterface,
-    _In_ LPWSTR lpAssemblyName,
-    _Inout_ LPWSTR* lpAssemblyPath
+    _In_ LPCWSTR lpAssemblyName,
+    _Inout_ LPCWSTR* lpAssemblyPath
 )
 {
     HRESULT hr = E_FAIL;
@@ -4491,4 +4560,137 @@ RPC_STATUS supCreateBindingHandle(
         RpcBindingFree(&Binding);
 
     return status;
+}
+
+/*
+* supConcatenatePaths
+*
+* Purpose:
+*
+* Concatenate 2 paths.
+*
+*/
+BOOL supxConcatenatePaths(
+    _Inout_ LPWSTR Target,
+    _In_ LPCWSTR Path,
+    _In_ UINT TargetBufferSize
+)
+{
+    SIZE_T TargetLength, PathLength;
+    BOOL TrailingBackslash, LeadingBackslash;
+    SIZE_T EndingLength;
+
+    TargetLength = _strlen(Target);
+    PathLength = _strlen(Path);
+
+    if (TargetLength && (*CharPrev(Target, Target + TargetLength) == TEXT('\\'))) {
+        TrailingBackslash = TRUE;
+        TargetLength--;
+    }
+    else {
+        TrailingBackslash = FALSE;
+    }
+
+    if (Path[0] == TEXT('\\')) {
+        LeadingBackslash = TRUE;
+        PathLength--;
+    }
+    else {
+        LeadingBackslash = FALSE;
+    }
+
+    EndingLength = TargetLength + PathLength + 2;
+
+    if (!LeadingBackslash && (TargetLength < TargetBufferSize)) {
+        Target[TargetLength++] = TEXT('\\');
+    }
+
+    if (TargetBufferSize > TargetLength) {
+        _strncpy(Target + TargetLength,
+            TargetBufferSize - TargetLength,
+            Path,
+            TargetBufferSize - TargetLength);
+    }
+
+    if (TargetBufferSize) {
+        Target[TargetBufferSize - 1] = 0;
+    }
+
+    return(EndingLength <= TargetBufferSize);
+}
+
+/*
+* supRemoveDirectoryRecursive
+*
+* Purpose:
+*
+* Recursively deletes the specified directory and all the files in it.
+*
+*/
+BOOL supRemoveDirectoryRecursive(
+    _In_ LPCWSTR Path
+)
+{
+    BOOL            bFind = TRUE;
+    BOOL            Ret = TRUE;
+    DWORD           dwAttributes;
+    HANDLE          hFind;
+    WCHAR           szTemp[MAX_PATH + 1];
+    WCHAR           FindPath[MAX_PATH + 1];
+    WIN32_FIND_DATA FindFileData;
+
+    _strncpy(FindPath, MAX_PATH, Path, MAX_PATH);
+    dwAttributes = GetFileAttributes(Path);
+
+    if (dwAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        supxConcatenatePaths(FindPath, TEXT("*.*"), MAX_PATH);
+    }
+
+    hFind = FindFirstFile(FindPath, &FindFileData);
+
+    while (hFind != INVALID_HANDLE_VALUE && bFind == TRUE) {
+
+        _strncpy(szTemp, MAX_PATH, Path, MAX_PATH);
+        supxConcatenatePaths(szTemp, FindFileData.cFileName, MAX_PATH);
+
+        //
+        // This is a directory, reenter.
+        //
+        if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+            (FindFileData.cFileName[0] != TEXT('.'))) {
+
+            if (!supRemoveDirectoryRecursive(szTemp)) {
+
+                Ret = FALSE;
+            }
+
+            RemoveDirectory(szTemp);
+        }
+
+        //
+        // Remove file.
+        //
+        else if (!(FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+
+            DeleteFile(szTemp);
+        }
+
+        bFind = FindNextFile(hFind, &FindFileData);
+    }
+
+    FindClose(hFind);
+
+    //
+    // Remove the root directory.
+    //
+    dwAttributes = GetFileAttributes(Path);
+    if (dwAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+
+        if (!RemoveDirectory(Path)) {
+
+            Ret = FALSE;
+        }
+    }
+
+    return Ret;
 }

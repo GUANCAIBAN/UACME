@@ -4,9 +4,9 @@
 *
 *  TITLE:       SUP.H
 *
-*  VERSION:     3.57
+*  VERSION:     3.58
 *
-*  DATE:        01 Nov 2021
+*  DATE:        21 Nov 2021
 *
 *  Common header file for the program support routines.
 *
@@ -140,6 +140,13 @@ typedef struct _STORAGESTREAM {
 //
 // Assembly cache scan routine and definitions.
 //
+typedef HRESULT(WINAPI* pfnCreateAssemblyEnum)(
+    _Out_ IAssemblyEnum** pEnum,
+    _In_opt_  IUnknown* pUnkReserved,
+    _In_opt_  IAssemblyName* pName,
+    _In_  DWORD dwFlags,
+    _Reserved_  LPVOID pvReserved);
+
 typedef HRESULT(WINAPI* pfnCreateAssemblyCache)(
     _Out_ IAssemblyCache** ppAsmCache,
     _In_  DWORD            dwReserved);
@@ -389,10 +396,17 @@ NTSTATUS supGetProcessDebugObject(
 BOOLEAN supInitFusion(
     _In_ DWORD dwVersion);
 
+HRESULT supFusionGetAssemblyName(
+    _In_ IAssemblyName* pInterface,
+    _Inout_ LPWSTR* lpName,
+    _Out_opt_ PSIZE_T pcchName,
+    _Inout_ LPWSTR* lpDisplayName,
+    _Out_opt_ PSIZE_T pcchDisplayName);
+
 HRESULT supFusionGetAssemblyPath(
     _In_ IAssemblyCache* pInterface,
-    _In_ LPWSTR lpAssemblyName,
-    _Inout_ LPWSTR* lpAssemblyPath);
+    _In_ LPCWSTR lpAssemblyName,
+    _Inout_ LPCWSTR* lpAssemblyPath);
 
 BOOLEAN supFusionGetAssemblyPathByName(
     _In_ LPWSTR lpAssemblyName,
@@ -517,6 +531,9 @@ HANDLE supRunProcessFromParent(
 RPC_STATUS supCreateBindingHandle(
     _In_ RPC_WSTR RpcInterfaceUuid,
     _Out_ RPC_BINDING_HANDLE* BindingHandle);
+
+BOOL supRemoveDirectoryRecursive(
+    _In_ LPCWSTR Path);
 
 #ifdef _DEBUG
 #define supDbgMsg(Message)  OutputDebugString(Message)

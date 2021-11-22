@@ -99,6 +99,7 @@ typedef struct _UACME_FUSION_CONTEXT {
     BOOL Initialized;
     HINSTANCE hFusion;
     pfnCreateAssemblyCache CreateAssemblyCache;
+    pfnCreateAssemblyEnum CreateAssemblyEnum;
 } UACME_FUSION_CONTEXT, * PUACME_FUSION_CONTEXT;
 
 typedef struct _UACME_CONTEXT {

@@ -4,9 +4,9 @@
 *
 *  TITLE:       CONSTS.H
 *
-*  VERSION:     3.57
+*  VERSION:     3.58
 *
-*  DATE:        01 Nov 2021
+*  DATE:        21 Nov 2021
 *
 *  Global consts definition file.
 *
@@ -50,8 +50,8 @@
 
 #define UCM_VERSION_MAJOR       3
 #define UCM_VERSION_MINOR       5
-#define UCM_VERSION_REVISION    7
-#define UCM_VERSION_BUILD       2111
+#define UCM_VERSION_REVISION    8
+#define UCM_VERSION_BUILD       2112
 
 #define SUPRUNPROCESS_TIMEOUT_DEFAULT 12000
 
@@ -164,6 +164,12 @@
 #define WOW64LOG_DLL                L"wow64log.dll"
 
 //
+// Native image cache targets
+//
+#define MMCEX_NI_DLL                L"MMCEx.ni.dll"
+#define MMCEX_NI_DLL_AUX            L"MMCEx.ni.dll.aux"
+
+//
 // Windows executables
 //
 #define CMD_EXE                     L"cmd.exe"
@@ -203,6 +209,7 @@
 #define NET2_DIR                    L"v2.0.50727"
 #define NET4_DIR                    L"v4.0.30319"
 #define MSNETFRAMEWORK_DIR          L"Microsoft.NET\\Framework"
+#define MMCEX_DIR                   L"\\MMCEx"
 
 //
 // Shell Verbs
