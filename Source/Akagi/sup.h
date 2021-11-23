@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.58
 *
-*  DATE:        21 Nov 2021
+*  DATE:        22 Nov 2021
 *
 *  Common header file for the program support routines.
 *
@@ -132,6 +132,26 @@ typedef struct _STORAGESTREAM {
     ULONG iSize;                  // Size of the file.
     CHAR  rcName[MAXSTREAMNAME];
 } STORAGESTREAM, * PSTORAGESTREAM;
+
+#include <pshpack1.h>
+typedef struct _STORAGETABLESHEADER {
+    DWORD Reserved0;
+    BYTE MajorVersion;
+    BYTE MinorVersion;
+    BYTE HeapOffsetSizes;
+    BYTE Reserved1;
+    ULARGE_INTEGER Valid;
+    ULARGE_INTEGER Sorted;
+    ULONG Rows[ANYSIZE_ARRAY];
+} STORAGETABLESHEADER, * PSTORAGETABLESHEADER;
+#include <poppack.h>
+
+#define STORAGE_MAGIC_SIG   0x424A5342  // BSJB
+
+#define MD_STRINGS_BIT 0x1
+#define MD_GUIDS_BIT   0x2
+#define MD_BLOBS_BIT   0x4
+#define MAX_CLR_TABLES  64
 
 //
 // Fusion metadata end
@@ -414,6 +434,11 @@ BOOLEAN supFusionGetAssemblyPathByName(
 
 BOOL supIsProcessRunning(
     _In_ LPWSTR ProcessName);
+
+BOOL supFusionReferenceStreamByName(
+    _In_ STORAGEHEADER* StorageHeader,
+    _In_ LPCSTR StreamName,
+    _Out_ PSTORAGESTREAM* StreamRef);
 
 BOOL supFusionGetImageMVID(
     _In_ LPCWSTR lpImageName,

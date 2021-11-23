@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.58
 *
-*  DATE:        21 Nov 2021
+*  DATE:        22 Nov 2021
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -2987,11 +2987,56 @@ BOOL supIsProcessRunning(
 }
 
 /*
+* supFusionReferenceStreamByName
+*
+* Purpose:
+*
+* Query stream pointer by stream name.
+*
+*/
+BOOL supFusionReferenceStreamByName(
+    _In_ STORAGEHEADER* StorageHeader,
+    _In_ LPCSTR StreamName,
+    _Out_ PSTORAGESTREAM *StreamRef
+)
+{
+    WORD i;
+    PBYTE streamPtr;
+    STORAGESTREAM* pStorStream;
+    ULONG offset;
+    SIZE_T nameLen;
+
+    *StreamRef = NULL;
+
+    streamPtr = (PBYTE)RtlOffsetToPointer(StorageHeader, sizeof(STORAGEHEADER));
+
+    i = 0;
+
+    do {
+        pStorStream = (STORAGESTREAM*)streamPtr;
+        if (_strcmpi_a(pStorStream->rcName, StreamName) == 0) {
+            *StreamRef = pStorStream;
+            return TRUE;
+        }
+
+        nameLen = _strlen_a(pStorStream->rcName) + 1;
+        offset = ALIGN_UP(FIELD_OFFSET(STORAGESTREAM, rcName) + nameLen, ULONG);
+        streamPtr = (PBYTE)RtlOffsetToPointer(streamPtr, offset);
+        i++;
+
+    } while (i < StorageHeader->iStreams);
+
+    return FALSE;
+}
+
+/*
 * supFusionGetImageMVID
 *
 * Purpose:
 *
 * Query MVID value from image metadata.
+*
+* Ref: https://www.ntcore.com/files/dotnetformat.htm
 *
 */
 BOOL supFusionGetImageMVID(
@@ -3003,16 +3048,17 @@ BOOL supFusionGetImageMVID(
     HMODULE hModule;
     PVOID baseAddress;
     IMAGE_COR20_HEADER* cliHeader;
-    ULONG sz, offset;
-
-    PBYTE streamData, streamPtr;
+    ULONG sz, offset, mvidIndex, i;
 
     STORAGESIGNATURE* pStorSign;
     STORAGEHEADER* pStorHeader;
-    STORAGESTREAM* pStorStream;
+    STORAGESTREAM* pStreamGuid;
+    STORAGESTREAM* pStreamTables;
+    STORAGETABLESHEADER* pTablesHeader;
 
-    SIZE_T nameLen;
-    WORD i = 0;
+    PBYTE tablesPtr;
+    LPGUID guidsPtr;
+
     RPC_STATUS st;
 
     st = UuidCreateNil(ModuleVersionId);
@@ -3028,30 +3074,56 @@ BOOL supFusionGetImageMVID(
             IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, &sz);
 
         pStorSign = (STORAGESIGNATURE*)RtlOffsetToPointer(baseAddress, cliHeader->MetaData.VirtualAddress);
-        if (pStorSign->lSignature == 'BJSB') {
+        if (pStorSign->lSignature == STORAGE_MAGIC_SIG) {
 
             offset = FIELD_OFFSET(STORAGESIGNATURE, pVersion) + pStorSign->iVersionString;
             pStorHeader = (STORAGEHEADER*)RtlOffsetToPointer(pStorSign, offset);
 
-            streamPtr = (PBYTE)RtlOffsetToPointer(pStorHeader, sizeof(STORAGEHEADER));
+            pStreamTables = NULL;
+            if (!supFusionReferenceStreamByName(pStorHeader, "#~", &pStreamTables)) {
+                FreeLibrary(hModule);
+                return FALSE;
+            }
 
-            do {
-                pStorStream = (STORAGESTREAM*)streamPtr;
-                if (_strcmpi_a(pStorStream->rcName, "#GUID") == 0) {
-                    if (pStorStream->iSize == sizeof(GUID)) {
-                        streamData = (PBYTE)RtlOffsetToPointer(pStorSign, pStorStream->iOffset);
-                        RtlCopyMemory(ModuleVersionId, streamData, sizeof(GUID));
-                        bResult = TRUE;
-                    }
-                    break;
+            pStreamGuid = NULL;
+            if (!supFusionReferenceStreamByName(pStorHeader, "#GUID", &pStreamGuid)) {
+                FreeLibrary(hModule);
+                return FALSE;
+            }
+
+            pTablesHeader = (STORAGETABLESHEADER*)RtlOffsetToPointer(pStorSign, pStreamTables->iOffset);
+            sz = 0;
+
+            //
+            // __popcnt64 or the garbage code below
+            //
+            for (i = 0; i < MAX_CLR_TABLES; i++)
+                if ((i < 32 && (pTablesHeader->Valid.u.LowPart >> i) & 1) ||
+                    (i >= 32 && (pTablesHeader->Valid.u.HighPart >> i) & 1))
+                {
+                    sz++;
                 }
 
-                nameLen = _strlen_a(pStorStream->rcName) + 1;
-                offset = ALIGN_UP(FIELD_OFFSET(STORAGESTREAM, rcName) + nameLen, ULONG);
-                streamPtr = (PBYTE)RtlOffsetToPointer(streamPtr, offset);
-                i++;
+            offset = FIELD_OFFSET(STORAGETABLESHEADER, Rows) + (sz * sizeof(ULONG));
 
-            } while (i < pStorHeader->iStreams);
+            tablesPtr = (PBYTE)RtlOffsetToPointer(pTablesHeader, offset);
+            tablesPtr += sizeof(WORD);
+
+            if (pTablesHeader->HeapOffsetSizes & MD_STRINGS_BIT)
+                tablesPtr += sizeof(DWORD);
+            else
+                tablesPtr += sizeof(WORD);
+
+            if (pTablesHeader->HeapOffsetSizes & MD_GUIDS_BIT)
+                mvidIndex = *(PULONG)tablesPtr;
+            else
+                mvidIndex = *(PUSHORT)tablesPtr;
+
+            if (mvidIndex) {
+                guidsPtr = (LPGUID)RtlOffsetToPointer(pStorSign, pStreamGuid->iOffset);
+                RtlCopyMemory(ModuleVersionId, &guidsPtr[mvidIndex - 1], sizeof(GUID));
+                bResult = TRUE;
+            }
         }
 
         FreeLibrary(hModule);
