@@ -327,7 +327,7 @@ NTSTATUS MethodsManagerCall(
         bParametersBlockSet = supCreateSharedParametersBlock(g_ctx);
     }
 
-    MethodResult = Entry->Routine(&ParamsBlock);
+    MethodResult = Entry->Routine(&ParamsBlock);// 例行程序，在这里进入后会弹出cmd
 
     if (PayloadCode) {
         RtlSecureZeroMemory(PayloadCode, PayloadSize);

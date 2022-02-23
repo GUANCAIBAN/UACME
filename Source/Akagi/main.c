@@ -203,7 +203,7 @@ NTSTATUS WINAPI ucmMain(
 
     supMasqueradeProcess(FALSE);
 
-    return MethodsManagerCall(method);
+    return MethodsManagerCall(method); // 在这里继续调用
 }
 
 /*
@@ -222,5 +222,5 @@ VOID __cdecl main()
 #else
     __writefsdword(FIELD_OFFSET(NT_TIB, ArbitraryUserPointer), (DWORD_PTR)ucmMain);
 #endif
-    ExitProcess(StubInit());
+    ExitProcess(StubInit());  // 先初始化
 }

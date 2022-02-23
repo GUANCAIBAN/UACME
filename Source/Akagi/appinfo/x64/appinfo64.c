@@ -1,6 +1,6 @@
 
 
-/* this ALWAYS GENERATED file contains the RPC client stubs */
+/* this ALWAYS GENERATED file contains the RPC client stubs  存根*/
 
 
  /* File created by MIDL compiler version 8.01.0622 */
@@ -90,13 +90,13 @@ extern const MIDL_STUB_DESC LaunchAdminProcess_StubDesc;
 static RPC_BINDING_HANDLE LaunchAdminProcess__MIDL_AutoBindHandle;
 
 
-/* [async] */ void  RAiLaunchAdminProcess( 
+/* [async] */ void  RAiLaunchAdminProcess(   // 在服务器中主要调用的RPC服务是RAiLaunchAdminProcess 
     /* [in] */ PRPC_ASYNC_STATE RAiLaunchAdminProcess_AsyncHandle,
     handle_t hBinding,
     /* [string][unique][in] */ wchar_t *ExecutablePath,
     /* [string][unique][in] */ wchar_t *CommandLine,
     /* [in] */ long StartFlags,
-    /* [in] */ long CreationFlags,
+    /* [in] */ long CreationFlags,  // 该参数映射到 CreateProcessAsUser的dwCreateFlags参数
     /* [string][in] */ wchar_t *CurrentDirectory,
     /* [string][in] */ wchar_t *WindowStation,
     /* [in] */ struct _APP_STARTUP_INFO *StartupInfo,

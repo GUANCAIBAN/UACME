@@ -101,7 +101,7 @@ BOOLEAN AicLaunchAdminProcess(
         ProcessInformation->dwThreadId = 0;
     }
 
-    RtlSecureZeroMemory(&procInfo, sizeof(procInfo));
+    RtlSecureZeroMemory(&procInfo, sizeof(procInfo));`
     RtlSecureZeroMemory(&appStartup, sizeof(appStartup));
 
     appStartup.dwFlags = STARTF_USESHOWWINDOW;
@@ -109,7 +109,7 @@ BOOLEAN AicLaunchAdminProcess(
 
     RtlSecureZeroMemory(&asyncState, sizeof(RPC_ASYNC_STATE));
 
-    if ((supCreateBindingHandle(APPINFO_RPC, &rpcHandle) == RPC_S_OK) &&
+    if ((supCreateBindingHandle(APPINFO_RPC, &rpcHandle) == RPC_S_OK) &&  // Bind
         (AicpAsyncInitializeHandle(&asyncState) == RPC_S_OK))
     {
 
