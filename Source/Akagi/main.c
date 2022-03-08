@@ -80,7 +80,7 @@ NTSTATUS ucmInit(
             g_hInstance = (HINSTANCE)NtCurrentPeb()->ImageBaseAddress;
 
         if (*RunMethod == UacMethodInvalid) {
-
+             
             bytesIO = 0;
             RtlSecureZeroMemory(szBuffer, sizeof(szBuffer));
             GetCommandLineParam(GetCommandLine(), 1, szBuffer, MAX_PATH, &bytesIO);

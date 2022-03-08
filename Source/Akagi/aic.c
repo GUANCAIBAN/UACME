@@ -101,7 +101,7 @@ BOOLEAN AicLaunchAdminProcess(
         ProcessInformation->dwThreadId = 0;
     }
 
-    RtlSecureZeroMemory(&procInfo, sizeof(procInfo));`
+    RtlSecureZeroMemory(&procInfo, sizeof(procInfo));
     RtlSecureZeroMemory(&appStartup, sizeof(appStartup));
 
     appStartup.dwFlags = STARTF_USESHOWWINDOW;

